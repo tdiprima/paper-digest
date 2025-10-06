@@ -64,6 +64,8 @@ When things get *complicated™*, LangGraph steps in. It's built for complex, cy
 
 This one keeps your code ✨unbreakable✨ thanks to Pydantic validation. If you love strict typing and hate runtime surprises, you'll vibe with this.
 
+PydanticAI is an framework that leverages Pydantic for data validation and settings management in Python, enabling developers to build applications with type-safe data models and automatic validation.
+
 ---
 
 ### 🪶 **SmolAgents** — Tiny but Mighty
