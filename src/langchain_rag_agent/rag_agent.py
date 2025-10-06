@@ -2,11 +2,15 @@ import os
 from datetime import datetime, timezone
 
 import requests
-from langchain.chains import ConversationalRetrievalChain
+from langchain.chains import create_retrieval_chain
+from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.docstore.document import Document
-from langchain.memory import ConversationBufferMemory
+from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_community.vectorstores import FAISS
-from langchain_openai import OpenAI, OpenAIEmbeddings
+from langchain_core.chat_history import BaseChatMessageHistory
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.runnables.history import RunnableWithMessageHistory
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENWEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
@@ -47,30 +51,63 @@ def store_forecasts_in_faiss(forecasts, city):
     return vectordb
 
 
+store = {}
+
+
+def get_session_history(session_id: str) -> BaseChatMessageHistory:
+    if session_id not in store:
+        store[session_id] = ChatMessageHistory()
+    return store[session_id]
+
+
 def build_agent(vectordb):
     """
     Create a RetrievalQA Chain with Memory
-    We'll use LangChain's RetrievalQA with memory to allow multi-step queries.
+    Using the new LangChain approach with RunnableWithMessageHistory.
     """
     retriever = vectordb.as_retriever()
-    memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
-    llm = OpenAI(temperature=0)
-    qa = ConversationalRetrievalChain.from_llm(llm, retriever, memory=memory)
-    return qa
+    llm = ChatOpenAI(temperature=0)
+    
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", "You are an assistant for question-answering tasks. Use the following pieces of retrieved context to answer the question. If you don't know the answer, just say that you don't know. Use three sentences maximum and keep the answer concise."),
+        MessagesPlaceholder("chat_history"),
+        ("human", "Context: {context}\n\nQuestion: {input}")
+    ])
+    
+    question_answer_chain = create_stuff_documents_chain(llm, prompt)
+    rag_chain = create_retrieval_chain(retriever, question_answer_chain)
+    
+    conversational_rag_chain = RunnableWithMessageHistory(
+        rag_chain,
+        get_session_history,
+        input_messages_key="input",
+        history_messages_key="chat_history",
+        output_messages_key="answer",
+    )
+    
+    return conversational_rag_chain
 
 
 if __name__ == "__main__":
-    city = "London"
+    city = "London, UK"
     forecasts = fetch_weather_forecast(city, OPENWEATHER_API_KEY)
     vectordb = store_forecasts_in_faiss(forecasts, city)
     agent = build_agent(vectordb)
 
+    session_id = "default_session"
+    
     # Example multi-step query
     query = "What's the forecast trend for next week? Is it getting warmer or colder?"
-    result = agent.invoke({"question": query})
+    result = agent.invoke(
+        {"input": query},
+        config={"configurable": {"session_id": session_id}}
+    )
     print(result)
 
     # Follow-up question
     followup = "What about the chance of rain?"
-    result2 = agent.invoke({"question": followup})
+    result2 = agent.invoke(
+        {"input": followup},
+        config={"configurable": {"session_id": session_id}}
+    )
     print(result2)

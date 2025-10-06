@@ -1,8 +1,8 @@
 # Basic LangChain example with prompt templates and document handling
-from langchain.embeddings import OpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings
 from langchain.prompts import PromptTemplate
 from langchain.schema import Document
-from langchain.vectorstores import FAISS
+from langchain_community.vectorstores import FAISS
 
 
 def main():
@@ -31,7 +31,7 @@ def main():
         print("Successfully created vector store with embeddings")
 
         retriever = vectorstore.as_retriever()
-        results = retriever.get_relevant_documents("hello world")
+        results = retriever.invoke("hello world")
 
         print("\nRelevant documents:")
         for doc in results:

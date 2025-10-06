@@ -4,6 +4,7 @@ from typing import List
 
 import requests
 from bs4 import BeautifulSoup
+
 from database import save_news_summary
 from models import NewsSummary
 

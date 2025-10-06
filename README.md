@@ -10,13 +10,15 @@
 
 **[agno_hello/](./src/agno_hello/)**
 
-Think of Agno as the "nice guy" of frameworks — super intuitive APIs, smooth workflows, and overall just *pleasant* to build collaborative AI systems with. No stress, just vibes.
+Agno basically gives a color-coded "brain dump" 🧠✨ — shows your prompt, breaks it into reasoning steps, logs any tool calls, then drops the final answer + response time. Super handy for debugging or peeking under the hood.
 
 ---
 
 ### 💬 **AutoGen** — R&D Buddy (Great for Conversations)
 
 **[autogen\_dev_team/](./src/autogen_dev_team/)**
+
+AutoGen is used when you need to **automatically generate** code, text, or content based on specific parameters or templates to improve efficiency and consistency in production workflows.
 
 Wanna simulate a lil dev team in your terminal? AutoGen's got two AI agents vibing together — one writes Python sorting algos, the other roasts and fixes the code through back-and-forth convos. Perfect for tinkering and research.
 
@@ -25,6 +27,14 @@ Wanna simulate a lil dev team in your terminal? AutoGen's got two AI agents vibi
 ### ⚡ **CrewAI** — Rapid Prototyping Squad
 
 **[crewai\_dev_team/](./src/crewai_stock_alert_system/)**
+
+🔍 Detailed execution traces are available!                                                            
+
+View insights including:                                                                     
+
+* Agent decision-making process                                                         
+* Task execution flow and timing                                           
+* Tool usage details
 
 CrewAI is like assembling a mini Avengers team of AI agents. Each plays a role, and together they crush complex tasks through structured collabs. Super fast to set up and prototype.
 
@@ -61,5 +71,7 @@ This one keeps your code ✨unbreakable✨ thanks to Pydantic validation. If you
 **[smol_agents/](./src/smolagents_hello/)**
 
 For quick side projects or lightweight setups, SmolAgents is the minimalist framework that lets you build fast without a dependency overload. Easy. Breezy. Smol.
+
+SmolAgents gives colorized diagnostics.
 
 <br>
