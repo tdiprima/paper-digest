@@ -1,4 +1,4 @@
-# python3.10 main.py
+# python3.10 run_stock_alert.py
 import smtplib
 from email.mime.text import MIMEText
 
