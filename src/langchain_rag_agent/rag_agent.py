@@ -23,7 +23,7 @@ def fetch_weather_forecast(city, api_key):
     Get the 5-day forecast for a city
     """
     url = f"https://api.openweathermap.org/data/2.5/forecast?q={city}&units=metric&appid={api_key}"
-    resp = requests.get(url)
+    resp = requests.get(url, timeout=10)
     data = resp.json()
     return data["list"]
 

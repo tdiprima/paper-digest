@@ -6,7 +6,7 @@ import yfinance as yf
 
 def get_latest_stock_price(symbol):
     # Add random delay between 1-3 seconds to avoid rate limiting
-    delay = random.uniform(1, 3)
+    delay = random.uniform(1, 3)  # nosec B311 - not security-sensitive, used for rate-limit jitter
     time.sleep(delay)
 
     ticker = yf.Ticker(symbol)
