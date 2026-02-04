@@ -1,5 +1,5 @@
 # Basic LangChain example with prompt templates and document handling
-from langchain_openai import OpenAIEmbeddings
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain.prompts import PromptTemplate
 from langchain.schema import Document
 from langchain_community.vectorstores import FAISS
@@ -13,7 +13,15 @@ def main():
         template="Please respond to this greeting: {greeting}",
     )
 
-    print("Created a simple prompt template")
+    print(f"Formatted prompt: {prompt_template.format(greeting='Hello, LangChain!')}")
+
+    try:
+        llm = ChatOpenAI(model="gpt-4o-mini")
+        chain = prompt_template | llm
+        response = chain.invoke({"greeting": "Hello, LangChain!"})
+        print(f"LLM response: {response.content}")
+    except Exception as e:
+        print(f"Note: LLM invocation requires OpenAI API key: {e}")
 
     documents = [
         Document(page_content="Hello world! Welcome to LangChain."),

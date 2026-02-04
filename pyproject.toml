@@ -4,14 +4,6 @@ version = "0.1.0"
 description = "AI Agent Playground"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { file = "LICENSE" }
-authors = [{ name = "Tammy DiPrima" }]
-keywords = ["ai", "ai-agents"]
-classifiers = [
-  "Programming Language :: Python :: 3",
-  "License :: OSI Approved :: MIT License",
-]
-
 # runtime deps (pinned)
 dependencies = [
     "ag2[openai]>=0.9.10",
@@ -34,6 +26,3 @@ dependencies = [
     "yfinance>=0.2.66",
 ]
 
-[project.urls]
-Homepage = "https://github.com/tdiprima/AI-Agent-Flow"
-Issues = "https://github.com/tdiprima/AI-Agent-Flow/issues"
