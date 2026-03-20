@@ -59,7 +59,7 @@ cp .env_sample .env
 
 | Agent | Framework | What It Does | Command |
 |---|---|---|---|
-| Reasoning transparency | Agno | Shows GPT-4o thinking step-by-step | `python src/agno_hello/hello_agno.py` |
+| Reasoning transparency | Agno | Shows GPT thinking step-by-step | `python src/agno_hello/hello_agno.py` |
 | Multi-agent dev team | AutoGen | CodeGen + Tester agents write and critique code | `python src/autogen_dev_team/create_sorting_algorithm.py` |
 | Stock alert system | CrewAI | Monitors prices and sends email alerts | `python src/crewai_stock_alert_system/run_stock_alert.py` |
 | Weather RAG agent | LangChain | Conversational Q&A over live forecast data | `python src/langchain_rag_agent/rag_agent.py` |
