@@ -4,50 +4,83 @@
 ![Languages](https://img.shields.io/github/languages/top/tdiprima/OpenAI-Cookbook)
 ![Personal](https://img.shields.io/badge/repo-personal-blueviolet)
 
-## 🧠 Multi-Agent Playground
+A hands-on collection of working AI agent examples across seven frameworks — LangChain, CrewAI, LangGraph, Pydantic AI, AutoGen, Agno, and smolagents.
 
-### ✨ Agno
+## The Problem With Learning Agent Frameworks
 
-[agno_hello/](./src/agno_hello/)
+Every major AI agent framework has its own mental model, API style, and tradeoffs. Reading docs only gets you so far — you need runnable, real-world examples to understand when to reach for CrewAI versus LangGraph, or why type-safe agents with Pydantic AI matter for production systems. Most tutorials cover hello-world; few show frameworks doing actual work.
 
-Agno – Super clean dev experience (friendly for most devs)
+## Working Examples, Not Toy Demos
 
-### 💬 AutoGen
+Each module in this repo solves a real problem using a specific framework. They run end-to-end, connect to live APIs, and demonstrate patterns you'd actually use in production: multi-agent collaboration, RAG with memory, conditional workflow routing, structured output validation, email alerting, and web scraping with deduplication.
 
-[autogen\_dev_team/](./src/autogen_dev_team/)
+## Example: Stock Alert System with CrewAI
 
-AutoGen – Chat-based agent research (ideal for R\&D and convos)
+Two agents collaborate — a Researcher fetches current and previous prices from Yahoo Finance, and an Analyst calculates the change and sends an email alert if a threshold is crossed:
 
-### ⚡ CrewAI
+```bash
+# Configure your stocks and alert threshold
+vim src/crewai_stock_alert_system/config.py
 
-[crewai\_dev_team/](./src/crewai_stock_alert_system/)
+# Run the multi-agent crew
+python src/crewai_stock_alert_system/run_stock_alert.py
+```
 
-CrewAI – Fast way to build agents that work together (great for prototyping)
+The Researcher and Analyst agents hand off context automatically. If AAPL drops more than 2%, an email goes out.
 
-### 📚 LangChain RAG Agent
+## Usage
 
-[langchain\_rag_agent/](./src/langchain_rag_agent/)
+### Prerequisites
 
-A classic RAG (Retrieval-Augmented Generation) setup built on LangChain. If your agents need some *receipts* (a.k.a. context), this one's your go-to.
+- Python 3.10+
+- [`uv`](https://docs.astral.sh/uv/) package manager
 
-### 🔁 LangGraph
+### Setup
 
-[langgraph_workflows/](./src/langgraph_branching_agent/)
+```bash
+# Install dependencies
+uv sync
 
-LangGraph – Handles complex workflows (good for nerdy/structured stuff)
+# Copy and fill in your API keys
+cp .env_sample .env
+```
 
-### ✅ PydanticAI
+**Required environment variables** (see `.env_sample`):
 
-[pydantic\_ai_example/](./src/pydantic_ai_example/)
+| Variable | Purpose |
+|---|---|
+| `OPENAI_API_KEY` | Required by all agents |
+| `WEATHER_API_KEY` | OpenWeatherMap (RAG agent) |
+| `EMAIL_SENDER` | Gmail address (stock alerts) |
+| `EMAIL_PASSWORD` | Gmail app password (stock alerts) |
+| `EMAIL_RECEIVER` | Alert recipient (stock alerts) |
 
-[type\_safe_news_agent/](./src/type_safe_news_agent/)
+### Run Any Example
 
-PydanticAI – Type-safe agents (you won't break things easily)
+| Agent | Framework | What It Does | Command |
+|---|---|---|---|
+| Reasoning transparency | Agno | Shows GPT-4o thinking step-by-step | `python src/agno_hello/hello_agno.py` |
+| Multi-agent dev team | AutoGen | CodeGen + Tester agents write and critique code | `python src/autogen_dev_team/create_sorting_algorithm.py` |
+| Stock alert system | CrewAI | Monitors prices and sends email alerts | `python src/crewai_stock_alert_system/run_stock_alert.py` |
+| Weather RAG agent | LangChain | Conversational Q&A over live forecast data | `python src/langchain_rag_agent/rag_agent.py` |
+| Branching workflow | LangGraph | Routes inputs to research, analysis, or escalation | `python src/langgraph_branching_agent/run_branching_agent.py` |
+| News analyzer | Pydantic AI | Sentiment, topics, and scoring with type-safe outputs | `python src/pydantic_ai_example/news_analyzer.py` |
+| News scraper | Pydantic AI | Fetches RSS feeds and stores validated articles in SQLite | `python src/type_safe_news_agent/run_news_agent.py` |
+| Web search agent | smolagents | Answers questions using live web search | `python src/smolagents_hello/hello_smolagents.py` |
 
-### 🪶 SmolAgents
+> **Note:** The news analyzer reads from the database created by the news scraper. Run `run_news_agent.py` first.
 
-[smol_agents/](./src/smolagents_hello/)
+### Project Layout
 
-SmolAgents – Minimalistic, lightweight (perfect for side projects); gives colorized diagnostics.
-
-<br>
+```
+src/
+├── agno_hello/                  # Agno reasoning example
+├── autogen_dev_team/            # AutoGen multi-agent code collaboration
+├── crewai_stock_alert_system/   # CrewAI stock monitoring with email
+├── langchain_rag_agent/         # LangChain RAG with FAISS + conversation memory
+├── langgraph_branching_agent/   # LangGraph conditional routing
+├── pydantic_ai_example/         # Pydantic AI news analysis
+├── smolagents_hello/            # smolagents web search
+└── type_safe_news_agent/        # Pydantic AI news scraper + SQLite
+docs/                            # Per-framework writeups
+```
