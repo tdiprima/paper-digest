@@ -1,6 +1,6 @@
 [project]
 name = "paper-digest"
-version = "0.1.0"
+version = "0.1.1"
 description = "Index arXiv PDFs, ask questions with page-level citations, and get a weekly digest. Built with Pydantic AI."
 readme = "README.md"
 requires-python = ">=3.12"

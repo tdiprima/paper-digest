@@ -1,4 +1,4 @@
-# paper-digest
+# paper-digest 📄
 
 Keep up with an arXiv topic without reading every PDF.
 
@@ -118,4 +118,6 @@ Data lives in `./data` (PDFs and the SQLite index). Override with
 
 ## License
 
-MIT
+[MIT](LICENSE)
+
+<BR>

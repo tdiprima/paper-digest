@@ -106,11 +106,16 @@ def download_pdf(entry: ArxivEntry) -> Path:
     PDF_DIR.mkdir(parents=True, exist_ok=True)
     path = PDF_DIR / f"{entry.arxiv_id.replace('/', '_')}.pdf"
     if not path.exists():
-        with httpx.stream("GET", entry.pdf_url, headers=HEADERS, timeout=60, follow_redirects=True) as r:
-            r.raise_for_status()
-            with path.open("wb") as f:
-                for part in r.iter_bytes():
-                    f.write(part)
+        tmp = path.with_suffix(".pdf.part")
+        try:
+            with httpx.stream("GET", entry.pdf_url, headers=HEADERS, timeout=60, follow_redirects=True) as r:
+                r.raise_for_status()
+                with tmp.open("wb") as f:
+                    for part in r.iter_bytes():
+                        f.write(part)
+            tmp.replace(path)
+        finally:
+            tmp.unlink(missing_ok=True)
     return path
 
 
@@ -137,6 +142,8 @@ def index_pdf(entry: ArxivEntry, path: Path, store: PaperStore) -> int:
                     text=piece,
                 )
             )
+    if not chunks:
+        raise ValueError(f"no extractable text in {path.name} (scanned PDF?)")
     store.add_chunks(chunks, pages=len(reader.pages))
     return len(chunks)
 
