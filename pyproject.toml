@@ -1,28 +1,25 @@
 [project]
-name = "ai-agent-flow"
+name = "paper-digest"
 version = "0.1.0"
-description = "AI Agent Playground"
+description = "Index arXiv PDFs, ask questions with page-level citations, and get a weekly digest. Built with Pydantic AI."
 readme = "README.md"
-requires-python = ">=3.10"
-# runtime deps (pinned)
+requires-python = ">=3.12"
 dependencies = [
-    "ag2[openai]>=0.9.10",
-    "agno>=2.1.1",
-    "autogen-ext>=0.7.5",
-    "beautifulsoup4>=4.14.2",
-    "crewai>=0.201.1",
-    "datetime>=5.5",
-    "faiss-cpu>=1.12.0",
-    "instructor>=1.11.3",
-    "langchain>=0.3.27",
-    "langchain-community>=0.3.30",
-    "langchain-openai>=0.3.34",
-    "langgraph>=0.6.8",
-    "pyautogen>=0.10.0",
-    "pydantic>=2.11.10",
+    "pydantic>=2.11",
     "pydantic-ai>=1.0.15",
-    "requests>=2.32.5",
-    "smolagents>=1.22.0",
-    "yfinance>=0.2.66",
+    "pypdf>=6.0",
+    "httpx>=0.28",
+    "feedparser>=6.0",
+    "python-dotenv>=1.0",
+    "typer>=0.15",
 ]
 
+[project.scripts]
+paper-digest = "paper_digest.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/paper_digest"]

@@ -208,3 +208,6 @@ __marimo__/
 
 data/news.db
 .claude/
+
+# paper-digest local data
+data/

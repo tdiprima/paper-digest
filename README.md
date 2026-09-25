@@ -1,86 +1,121 @@
-# AI-Agent-Flow
+# paper-digest
 
-![License](https://img.shields.io/github/license/tdiprima/OpenAI-Cookbook)
-![Languages](https://img.shields.io/github/languages/top/tdiprima/OpenAI-Cookbook)
-![Personal](https://img.shields.io/badge/repo-personal-blueviolet)
+Keep up with an arXiv topic without reading every PDF.
 
-A hands-on collection of working AI agent examples across seven frameworks — LangChain, CrewAI, LangGraph, Pydantic AI, AutoGen, Agno, and smolagents.
+`paper-digest` watches an arXiv category, pulls the papers that match your
+keywords, indexes the full text of every PDF page by page, and gives you two
+things:
 
-## The Problem With Learning Agent Frameworks
+- **Ask.** Questions across the whole library, answered with citations that
+  point at an arXiv id *and a page number* you can go check.
+- **Digest.** A Markdown roundup of what landed in the last week or month:
+  cross-paper themes, one line per paper on what it does and why it matters.
 
-Every major AI agent framework has its own mental model, API style, and tradeoffs. Reading docs only gets you so far — you need runnable, real-world examples to understand when to reach for CrewAI versus LangGraph, or why type-safe agents with Pydantic AI matter for production systems. Most tutorials cover hello-world; few show frameworks doing actual work.
+Built with [Pydantic AI](https://ai.pydantic.dev) on Claude. Retrieval is
+SQLite FTS5 (BM25), so there is no embedding model to download and it runs
+offline apart from the model call.
 
-## Working Examples, Not Toy Demos
+## Why this shape
 
-Each module in this repo solves a real problem using a specific framework. They run end-to-end, connect to live APIs, and demonstrate patterns you'd actually use in production: multi-agent collaboration, RAG with memory, conditional workflow routing, structured output validation, email alerting, and web scraping with deduplication.
+Most "RAG agent" demos retrieve three sentences about the weather. That is not
+the problem RAG solves. RAG is for a corpus that will never fit in a context
+window: dozens of 20-page papers is a few million tokens. The agent here has to
+search, decide which pages are worth reading in full, read them, and cite them.
+The structured output forces every claim to carry a citation, and the CLI
+prints those citations so you can verify the answer instead of trusting it.
 
-## Example: Stock Alert System with CrewAI
+## Install
 
-Two agents collaborate — a Researcher fetches current and previous prices from Yahoo Finance, and an Analyst calculates the change and sends an email alert if a threshold is crossed:
-
-```bash
-# Configure your stocks and alert threshold
-vim src/crewai_stock_alert_system/config.py
-
-# Run the multi-agent crew
-python src/crewai_stock_alert_system/run_stock_alert.py
-```
-
-The Researcher and Analyst agents hand off context automatically. If AAPL drops more than 2%, an email goes out.
-
-## Usage
-
-### Prerequisites
-
-- Python 3.10+
-- [`uv`](https://docs.astral.sh/uv/) package manager
-
-### Setup
+Requires Python 3.12+ and [`uv`](https://docs.astral.sh/uv/).
 
 ```bash
-# Install dependencies
 uv sync
-
-# Copy and fill in your API keys
-cp .env_sample .env
+cp .env_sample .env   # add your ANTHROPIC_API_KEY
 ```
 
-**Required environment variables** (see `.env_sample`):
+## Use
 
-| Variable | Purpose |
+```bash
+# 1. Pull today's cs.CL announcements whose title/abstract mention retrieval or RAG
+uv run paper-digest add cs.CL -m retrieval -m RAG --max 25
+
+# Or use full arXiv search syntax (some networks get a 406 from this endpoint)
+uv run paper-digest add --query "cat:cs.CL AND ti:retrieval" --max 25
+
+# 2. See what's indexed
+uv run paper-digest papers --since 30d
+
+# 3. Ask across the library
+uv run paper-digest ask "What retrieval methods reduce hallucination, and how are they evaluated?"
+uv run paper-digest ask "Which papers use the BEIR benchmark?" --since 2w
+
+# 4. Weekly digest, as Markdown
+uv run paper-digest digest --since 7d > digest.md
+```
+
+`--since` accepts `7d`, `2w`, `1m`, or an ISO date.
+
+Example `ask` output:
+
+```
+Only two of the four indexed papers involve retrieval, and in very different
+senses. PTC-Bias uses retrieval literally as a component ...
+
+- PTC-Bias evaluates on LibriSpeech test-clean/test-other under the Rare5k
+  protocol with N in {100, 500, 1000, 2000} distractors ...  [2609.28727 p.3]
+- BM25 and cross-encoder retrieval are used as data-construction machinery in
+  CTC-BENCH: distractors are BM25-mined from each dataset's corpus ...  [2609.29245 p.17,18]
+
+Not covered by the library:
+- No indexed paper implements classical retrieve-then-generate RAG
+```
+
+## Run it weekly
+
+Add a cron entry (or a launchd job on macOS):
+
+```
+# Ingest every weekday morning (the feed only lists that day's announcements)
+0 8 * * 1-5  cd /path/to/paper-digest && uv run paper-digest add cs.CL -m retrieval -m RAG --max 30
+# Digest on Friday afternoon
+0 16 * * 5   cd /path/to/paper-digest && uv run paper-digest digest --since 7d > digests/$(date +\%F).md
+```
+
+## How it works
+
+```
+src/paper_digest/
+├── ingest.py   arXiv feed/API → PDF download → pypdf page text → word chunks
+├── store.py    SQLite: papers table + chunks table + FTS5 index (BM25)
+├── agent.py    Pydantic AI agent, 3 tools, two output schemas
+├── cli.py      typer commands: add, papers, ask, digest
+└── config.py   paths, model id, chunk sizes
+```
+
+The agent gets three tools:
+
+| Tool | What it does |
 |---|---|
-| `OPENAI_API_KEY` | Required by all agents |
-| `WEATHER_API_KEY` | OpenWeatherMap (RAG agent) |
-| `EMAIL_SENDER` | Gmail address (stock alerts) |
-| `EMAIL_PASSWORD` | Gmail app password (stock alerts) |
-| `EMAIL_RECEIVER` | Alert recipient (stock alerts) |
+| `search_chunks(query, k)` | BM25 search over every chunk, tagged with arXiv id and page |
+| `list_papers()` | Every indexed paper, newest first |
+| `read_pages(arxiv_id, pages)` | Full text of specific pages of one paper |
 
-### Run Any Example
+Its output is validated against a Pydantic model. For `ask`, every `Finding`
+requires at least one `Citation` with page numbers. For `digest`, every paper
+gets a `DigestItem` with the key pages. If the model returns something that
+does not validate, Pydantic AI sends the error back and retries.
 
-| Agent | Framework | What It Does | Command |
-|---|---|---|---|
-| Reasoning transparency | Agno | Shows GPT thinking step-by-step | `python src/agno_hello/hello_agno.py` |
-| Multi-agent dev team | AutoGen | CodeGen + Tester agents write and critique code | `python src/autogen_dev_team/create_sorting_algorithm.py` |
-| Stock alert system | CrewAI | Monitors prices and sends email alerts | `python src/crewai_stock_alert_system/run_stock_alert.py` |
-| Weather RAG agent | LangChain | Conversational Q&A over live forecast data | `python src/langchain_rag_agent/rag_agent.py` |
-| Branching workflow | LangGraph | Routes inputs to research, analysis, or escalation | `python src/langgraph_branching_agent/run_branching_agent.py` |
-| News analyzer | Pydantic AI | Sentiment, topics, and scoring with type-safe outputs | `python src/pydantic_ai_example/news_analyzer.py` |
-| News scraper | Pydantic AI | Fetches RSS feeds and stores validated articles in SQLite | `python src/type_safe_news_agent/run_news_agent.py` |
-| Web search agent | smolagents | Answers questions using live web search | `python src/smolagents_hello/hello_smolagents.py` |
+Data lives in `./data` (PDFs and the SQLite index). Override with
+`PAPER_DIGEST_DATA`.
 
-> **Note:** The news analyzer reads from the database created by the news scraper. Run `run_news_agent.py` first.
+## Configuration
 
-### Project Layout
+| Setting | Where | Default |
+|---|---|---|
+| Model | `config.py` `MODEL` | `anthropic:claude-opus-5` |
+| Chunk size | `config.py` `CHUNK_WORDS` | 350 words, 60 overlap |
+| Data directory | `PAPER_DIGEST_DATA` env | `./data` |
 
-```
-src/
-├── agno_hello/                  # Agno reasoning example
-├── autogen_dev_team/            # AutoGen multi-agent code collaboration
-├── crewai_stock_alert_system/   # CrewAI stock monitoring with email
-├── langchain_rag_agent/         # LangChain RAG with FAISS + conversation memory
-├── langgraph_branching_agent/   # LangGraph conditional routing
-├── pydantic_ai_example/         # Pydantic AI news analysis
-├── smolagents_hello/            # smolagents web search
-└── type_safe_news_agent/        # Pydantic AI news scraper + SQLite
-docs/                            # Per-framework writeups
-```
+## License
+
+MIT
