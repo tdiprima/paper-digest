@@ -119,3 +119,10 @@ def test_list_papers_records_page_count(store: PaperStore):
     store.add_chunks([chunk("a", 1, "x")], pages=12)
     p = store.list_papers()[0]
     assert (p.arxiv_id, p.title, p.published, p.pages) == ("a", "Title a", "2026-09-01", 12)
+
+
+def test_explicit_db_path(tmp_path: Path):
+    path = tmp_path / "custom" / "db.sqlite"
+    s = PaperStore(path)
+    s.add_chunks([chunk("a", 1, "x")], pages=1)
+    assert path.exists() and PaperStore(path).has_paper("a")

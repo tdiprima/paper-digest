@@ -13,6 +13,8 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import date
 
+from pathlib import Path
+
 from .config import INDEX_DIR
 
 DB_PATH = INDEX_DIR / "papers.sqlite"
@@ -65,9 +67,10 @@ def _fts_query(q: str) -> str:
 
 
 class PaperStore:
-    def __init__(self) -> None:
-        INDEX_DIR.mkdir(parents=True, exist_ok=True)
-        self._db = sqlite3.connect(DB_PATH, check_same_thread=False)
+    def __init__(self, db_path: Path | None = None) -> None:
+        self.db_path = Path(db_path) if db_path else DB_PATH
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self._db = sqlite3.connect(self.db_path, check_same_thread=False)
         self._db.row_factory = sqlite3.Row
         self._db.executescript(SCHEMA)
 

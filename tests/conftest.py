@@ -46,7 +46,6 @@ def data_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     pdf_dir = tmp_path / "pdfs"
     index_dir = tmp_path / "index"
     monkeypatch.setattr(ingest_mod, "PDF_DIR", pdf_dir)
-    monkeypatch.setattr(store_mod, "INDEX_DIR", index_dir)
     monkeypatch.setattr(store_mod, "DB_PATH", index_dir / "papers.sqlite")
     return tmp_path
 

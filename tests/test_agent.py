@@ -76,8 +76,7 @@ ANSWER = {
 def test_ask_without_since_sees_all_papers(store: PaperStore):
     _seed(store)
     model = ScriptedModel(ANSWER)
-    with agent_mod.ask_agent.override(model=FunctionModel(model)):
-        a = agent_mod.ask("what is the result?", store)
+    a = agent_mod.ask("what is the result?", store, model=FunctionModel(model))
 
     assert a.summary == ANSWER["summary"]
     assert a.findings[0].citations[0].arxiv_id == "new.1"
@@ -97,8 +96,7 @@ def test_ask_without_since_sees_all_papers(store: PaperStore):
 def test_ask_with_since_restricts_tools_to_period(store: PaperStore):
     _seed(store)
     model = ScriptedModel(ANSWER)
-    with agent_mod.ask_agent.override(model=FunctionModel(model)):
-        agent_mod.ask("what is the result?", store, since=date(2026, 9, 1))
+    agent_mod.ask("what is the result?", store, since=date(2026, 9, 1), model=FunctionModel(model))
 
     ret = model.tool_returns
     assert "new.1" in ret["list_papers"][0] and "old.1" not in ret["list_papers"][0]
@@ -108,16 +106,14 @@ def test_ask_with_since_restricts_tools_to_period(store: PaperStore):
 def test_ask_since_boundary_is_inclusive(store: PaperStore):
     _seed(store)
     model = ScriptedModel(ANSWER)
-    with agent_mod.ask_agent.override(model=FunctionModel(model)):
-        agent_mod.ask("q", store, since=date(2026, 9, 20))
+    agent_mod.ask("q", store, since=date(2026, 9, 20), model=FunctionModel(model))
     assert "new.1" in model.tool_returns["list_papers"][0]
 
 
 def test_ask_on_empty_library_reports_nothing(store: PaperStore):
     empty = {"summary": "The library is empty.", "findings": [], "gaps": ["no papers indexed"]}
     model = ScriptedModel(empty, read_pages_args={"arxiv_id": "nope", "pages": [1]})
-    with agent_mod.ask_agent.override(model=FunctionModel(model)):
-        a = agent_mod.ask("anything?", store)
+    a = agent_mod.ask("anything?", store, model=FunctionModel(model))
 
     assert a.findings == []
     assert a.gaps == ["no papers indexed"]
@@ -130,46 +126,102 @@ def test_ask_on_empty_library_reports_nothing(store: PaperStore):
 def test_finding_requires_citation(store: PaperStore):
     bad = {"summary": "x", "findings": [{"claim": "uncited", "citations": []}]}
     model = ScriptedModel(bad)
-    with agent_mod.ask_agent.override(model=FunctionModel(model)):
-        with pytest.raises(Exception):  # validation retries exhausted
-            agent_mod.ask("q", store)
+    with pytest.raises(Exception):  # validation retries exhausted
+        agent_mod.ask("q", store, model=FunctionModel(model))
 
 
-DIGEST = {
-    "period": "since 2026-09-01",
-    "themes": ["retrieval", "evaluation"],
-    "items": [{
-        "arxiv_id": "new.1", "title": "New Paper", "published": "2026-09-20",
-        "one_liner": "Does a thing.", "why_it_matters": "It matters.", "key_pages": [1, 3],
-    }],
+def test_citation_to_unread_page_is_rejected(store: PaperStore):
+    _seed(store)
+    bad = {**ANSWER, "findings": [{"claim": "c", "citations": [{"arxiv_id": "new.1", "title": "New Paper", "pages": [2]}]}]}
+    model = ScriptedModel(bad)  # reads new.1 pages 1,3 only
+    with pytest.raises(Exception):
+        agent_mod.ask("q", store, model=FunctionModel(model))
+    retry_text = str(model.seen[-1][-1].parts[0].content)
+    assert "new.1 p.2" in retry_text
+
+
+def test_citation_to_unread_paper_is_rejected(store: PaperStore):
+    _seed(store)
+    bad = {**ANSWER, "findings": [{"claim": "c", "citations": [{"arxiv_id": "ghost.9", "title": "Ghost", "pages": [1]}]}]}
+    model = ScriptedModel(bad)
+    with pytest.raises(Exception):
+        agent_mod.ask("q", store, model=FunctionModel(model))
+    assert "ghost.9 p.1" in str(model.seen[-1][-1].parts[0].content)
+
+
+def test_model_can_fix_citation_after_retry(store: PaperStore):
+    _seed(store)
+    bad = {**ANSWER, "findings": [{"claim": "c", "citations": [{"arxiv_id": "new.1", "title": "New Paper", "pages": [2]}]}]}
+    calls = 0
+
+    def fn(messages, info: AgentInfo) -> ModelResponse:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return ModelResponse(parts=[ToolCallPart("read_pages", {"arxiv_id": "new.1", "pages": [1, 3]})])
+        if calls == 2:
+            return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, bad)])
+        return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, ANSWER)])
+
+    a = agent_mod.ask("q", store, model=FunctionModel(fn))
+    assert calls == 3
+    assert a.findings[0].citations[0].pages == [1, 3]
+
+
+ITEM = {
+    "arxiv_id": "new.1", "title": "New Paper", "published": "2026-09-20",
+    "one_liner": "Does a thing.", "why_it_matters": "It matters.", "key_pages": [1, 3],
 }
 
 
-def test_digest_passes_since_into_prompt_and_tools(store: PaperStore):
+class DigestModel:
+    """Per-paper runs: read_pages then emit `item`. Themes run: emit `themes` directly."""
+
+    def __init__(self, item: dict, themes: list[str], read_pages: list[int] = (1, 3)):
+        self.item, self.themes, self.read_pages = item, themes, list(read_pages)
+        self.runs: list[list[ModelMessage]] = []
+
+    def __call__(self, messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        out = info.output_tools[0].name
+        first = messages[0].parts[-1].content
+        if first.startswith("Here are one-line summaries"):
+            self.runs.append(messages)
+            return ModelResponse(parts=[ToolCallPart(out, {"themes": self.themes})])
+        if len(messages) == 1:
+            return ModelResponse(parts=[ToolCallPart("read_pages", {"arxiv_id": self.item["arxiv_id"], "pages": self.read_pages})])
+        self.runs.append(messages)
+        return ModelResponse(parts=[ToolCallPart(out, self.item)])
+
+
+def test_digest_runs_per_paper_then_synthesizes_themes(store: PaperStore):
     _seed(store)
-    model = ScriptedModel(DIGEST)
-    with agent_mod.digest_agent.override(model=FunctionModel(model)):
-        d = agent_mod.digest(store, since=date(2026, 9, 1))
+    model = DigestModel(ITEM, ["retrieval", "evaluation"])
+    d = agent_mod.digest(store, since=date(2026, 9, 1), model=FunctionModel(model))
 
     assert d.period == "since 2026-09-01"
-    assert [i.arxiv_id for i in d.items] == ["new.1"]
+    assert d.themes == ["retrieval", "evaluation"]
+    assert [i.arxiv_id for i in d.items] == ["new.1"]  # old.1 excluded by since
     assert d.items[0].key_pages == [1, 3]
 
-    first_request = model.seen[0][0]
-    user_text = " ".join(str(p.content) for p in first_request.parts if hasattr(p, "content"))
-    assert "on or after 2026-09-01" in user_text
-    assert "Set period to 'since 2026-09-01'" in user_text
-    ret = model.tool_returns
-    assert "new.1" in ret["list_papers"][0] and "old.1" not in ret["list_papers"][0]
+    item_run, themes_run = model.runs
+    assert "paper new.1" in item_run[0].parts[-1].content
+    assert "page 1]" in _tool_returns(item_run)["read_pages"][0]
+    assert "new.1 | New Paper: Does a thing." in themes_run[0].parts[-1].content
 
 
-def test_digest_on_empty_library(store: PaperStore):
-    empty = {"period": "since 2026-09-01", "themes": [], "items": []}
-    model = ScriptedModel(empty)
-    with agent_mod.digest_agent.override(model=FunctionModel(model)):
-        d = agent_mod.digest(store, since=date(2026, 9, 1))
-    assert d.items == [] and d.themes == []
-    assert model.tool_returns["list_papers"] == ["No papers indexed for this period."]
+def test_digest_item_with_unread_key_pages_is_rejected(store: PaperStore):
+    _seed(store)
+    model = DigestModel({**ITEM, "key_pages": [2]}, ["t"])
+    with pytest.raises(Exception):
+        agent_mod.digest(store, since=date(2026, 9, 1), model=FunctionModel(model))
+
+
+def test_digest_on_empty_library_makes_no_model_calls(store: PaperStore):
+    def fn(messages, info):
+        raise AssertionError("model should not be called")
+
+    d = agent_mod.digest(store, since=date(2026, 9, 1), model=FunctionModel(fn))
+    assert d == agent_mod.Digest(period="since 2026-09-01", themes=[], items=[])
 
 
 def test_fmt_formats_chunks_and_empty():
